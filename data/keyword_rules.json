@@ -1,0 +1,18 @@
+[
+  { "pattern": "SWIGGY|ZOMATO|UBEREATS", "category": "Food & Dining", "subcategory": "Delivery", "priority": 10 },
+  { "pattern": "BIGBASKET|BLINKIT|ZEPTO|INSTAMART", "category": "Food & Dining", "subcategory": "Groceries", "priority": 10 },
+  { "pattern": "UBER|OLA|RAPIDO", "category": "Transport", "subcategory": "Ride-hailing", "priority": 10 },
+  { "pattern": "INDIAN OIL|IOCL|BHARAT PETROLEUM|BPCL|HP PETROL|HPCL|SHELL", "category": "Transport", "subcategory": "Fuel", "priority": 10 },
+  { "pattern": "AMAZON|FLIPKART|MYNTRA|AJIO", "category": "Shopping", "subcategory": "Amazon/Flipkart", "priority": 10 },
+  { "pattern": "NETFLIX|HOTSTAR|PRIME VIDEO|SPOTIFY|JIOCINEMA|SONYLIV", "category": "Subscriptions", "subcategory": "Entertainment", "priority": 10 },
+  { "pattern": "APOLLO PHARMACY|PHARMEASY|NETMEDS|1MG", "category": "Health", "subcategory": "Pharmacy", "priority": 10 },
+  { "pattern": "IRCTC", "category": "Travel", "subcategory": "Train", "priority": 10 },
+  { "pattern": "MAKEMYTRIP|GOIBIBO|CLEARTRIP|YATRA|INDIGO|AIR INDIA|VISTARA|SPICEJET", "category": "Travel", "subcategory": "Flights", "priority": 10 },
+  { "pattern": "OYO|AIRBNB", "category": "Travel", "subcategory": "Hotels", "priority": 10 },
+  { "pattern": "BSES|ADANI ELECTRICITY|TATA POWER|TNEB|MSEB|ELECTRICITY BILL", "category": "Utilities", "subcategory": "Electricity", "priority": 10 },
+  { "pattern": "AIRTEL|JIO|VODAFONE|VI |BSNL", "category": "Utilities", "subcategory": "Mobile Recharge", "priority": 5 },
+  { "pattern": "ACT FIBERNET|HATHWAY|EXCITEL|BROADBAND", "category": "Utilities", "subcategory": "Internet", "priority": 10 },
+  { "pattern": "CREDIT CARD PAYMENT|CC PAYMENT|CARD BILL PAYMENT", "category": "Transfer", "subcategory": "CC Bill Payment", "priority": 5 },
+  { "pattern": "SIP|SYSTEMATIC INVESTMENT", "category": "Investment", "subcategory": "SIP", "priority": 5 },
+  { "pattern": "ZERODHA|GROWW|UPSTOX|ICICI DIRECT|ICICIDIRECT", "category": "Investment", "subcategory": "Stock Purchase", "priority": 5 }
+]

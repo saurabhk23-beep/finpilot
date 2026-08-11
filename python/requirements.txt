@@ -1,0 +1,3 @@
+# CAS (mutual fund) statement parsing. Pulls in pypdfium2, which parse_bank.py
+# also uses for generic bank-statement PDF text extraction.
+casparser>=1.3.0

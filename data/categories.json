@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Food & Dining",
+    "subcategories": ["Groceries", "Delivery", "Restaurants", "Bars & Pubs", "Office Lunch"]
+  },
+  {
+    "name": "Transport",
+    "subcategories": ["Ride-hailing", "Metro/Bus", "Fuel", "Parking", "Tolls"]
+  },
+  {
+    "name": "Shopping",
+    "subcategories": ["Clothing", "Electronics", "Amazon/Flipkart", "Personal Care"]
+  },
+  {
+    "name": "Housing",
+    "subcategories": ["Rent", "Maintenance", "Home Setup", "Repairs"]
+  },
+  {
+    "name": "Utilities",
+    "subcategories": ["Electricity", "Water", "Gas", "Internet", "Mobile Recharge"]
+  },
+  {
+    "name": "Subscriptions",
+    "subcategories": ["Entertainment", "Software", "Gym", "News"]
+  },
+  {
+    "name": "Health",
+    "subcategories": ["Pharmacy", "Doctor", "Insurance Premium", "Lab Tests"]
+  },
+  {
+    "name": "Travel",
+    "subcategories": ["Flights", "Hotels", "Train", "Intercity"]
+  },
+  {
+    "name": "Family",
+    "subcategories": ["Support/Transfer", "Gifts", "Family Travel"]
+  },
+  {
+    "name": "Personal",
+    "subcategories": ["Grooming", "Lifestyle", "Miscellaneous"]
+  },
+  {
+    "name": "EMI / Loan",
+    "subcategories": ["Home Loan", "Car Loan", "Education Loan", "BNPL"]
+  },
+  {
+    "name": "Investment",
+    "subcategories": ["SIP", "Stock Purchase", "FD", "PPF", "NPS"]
+  },
+  {
+    "name": "Income",
+    "subcategories": ["Salary", "Freelance", "Interest", "Dividend", "Cashback"]
+  },
+  {
+    "name": "Transfer",
+    "subcategories": ["Inter-account", "CC Bill Payment"]
+  }
+]
