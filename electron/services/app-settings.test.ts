@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { readSettings, timeToCron, writeSettings } from './app-settings'
+import { readPublicProfile, readSettings, timeToCron, writePublicProfile, writeSettings } from './app-settings'
 
 describe('timeToCron', () => {
   it('converts HH:MM to a cron expression', () => {
@@ -31,14 +31,35 @@ describe('settings store', () => {
   })
 
   it('round-trips written settings and merges over defaults', () => {
-    writeSettings(path, { refresh: { enabled: false, time: '08:30' } })
+    writeSettings(path, { refresh: { enabled: false, time: '08:30' }, profile: { username: null }, devMode: false })
     expect(readSettings(path).refresh).toEqual({ enabled: false, time: '08:30' })
   })
 
   it('recovers to defaults on a corrupt file', () => {
-    writeSettings(path, { refresh: { enabled: false, time: '08:30' } })
+    writeSettings(path, { refresh: { enabled: false, time: '08:30' }, profile: { username: null }, devMode: false })
     rmSync(path)
     require('fs').writeFileSync(path, '{ not json', 'utf-8')
     expect(readSettings(path).refresh.enabled).toBe(true)
+  })
+})
+
+describe('public profile mirror', () => {
+  let dir: string
+  let path: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'finpilot-profile-'))
+    path = join(dir, 'settings.json')
+  })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('defaults to a null username', () => {
+    expect(readPublicProfile(path)).toEqual({ username: null })
+  })
+
+  it('round-trips a username without disturbing refresh settings', () => {
+    writePublicProfile(path, { username: 'saurabh' })
+    expect(readPublicProfile(path).username).toBe('saurabh')
+    // Refresh config stays at defaults, proving the merge doesn't clobber it.
+    expect(readSettings(path).refresh).toEqual({ enabled: true, time: '19:00' })
   })
 })

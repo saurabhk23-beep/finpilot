@@ -9,6 +9,7 @@ const MONTHS = [
 ]
 
 export default function ProfileStep() {
+  const [username, setUsername] = useState('')
   const [name, setName] = useState('')
   const [salary, setSalary] = useState('')
   const [employer, setEmployer] = useState('')
@@ -20,6 +21,7 @@ export default function ProfileStep() {
   useEffect(() => {
     ipc.user.get().then((u) => {
       if (!u) return
+      if (u.username) setUsername(u.username)
       if (u.name) setName(u.name)
       if (u.monthly_salary != null) setSalary(String(u.monthly_salary))
       if (u.employer_name) setEmployer(u.employer_name)
@@ -30,8 +32,8 @@ export default function ProfileStep() {
   async function handleNext(): Promise<boolean> {
     setError(null)
     const salaryNum = Number(salary)
-    if (!name.trim() || !employer.trim() || !salary.trim()) {
-      setError('Name, monthly salary, and employer are required.')
+    if (!username.trim() || !name.trim() || !employer.trim() || !salary.trim()) {
+      setError('Username, name, monthly salary, and employer are required.')
       return false
     }
     if (!Number.isFinite(salaryNum) || salaryNum <= 0) {
@@ -42,11 +44,14 @@ export default function ProfileStep() {
     setBusy(true)
     try {
       await ipc.user.update({
+        username: username.trim(),
         name: name.trim(),
         monthly_salary: salaryNum,
         employer_name: employer.trim(),
         fy_start_month: fyStart
       })
+      // Mirror the username outside the vault so the unlock screen can greet by name.
+      await ipc.settings.setProfile({ username: username.trim() })
       return true
     } catch {
       setError('Could not save your profile. Please try again.')
@@ -65,6 +70,9 @@ export default function ProfileStep() {
       busy={busy}
     >
       <div className="space-y-4">
+        <Field label="Username" required hint="Shown when you unlock the app.">
+          <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="saurabh" />
+        </Field>
         <Field label="Name" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Saurabh" />
         </Field>

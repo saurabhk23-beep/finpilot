@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ipc } from '../../../lib/ipc'
 import type { Stock } from '../../../types'
 import { Button, Card, Field, Input, Select } from '../../../components/ui'
+import { CasImporter, BrokerImporter } from '../../../components/InvestmentImporters'
 import StepLayout from '../StepLayout'
 
 const emptyStock = {
@@ -17,11 +18,6 @@ export default function InvestmentsStep() {
   const [form, setForm] = useState(emptyStock)
   const [error, setError] = useState<string | null>(null)
 
-  const [casPassword, setCasPassword] = useState('')
-  const [casStatus, setCasStatus] = useState<string | null>(null)
-  const [growwStatus, setGrowwStatus] = useState<string | null>(null)
-  const [busy, setBusy] = useState<null | 'cas' | 'groww'>(null)
-
   async function refresh() {
     setStocks(await ipc.investments.listStocks())
   }
@@ -29,45 +25,6 @@ export default function InvestmentsStep() {
   useEffect(() => {
     refresh()
   }, [])
-
-  async function importCas() {
-    setCasStatus(null)
-    const files = await ipc.dialog.openFiles({ accept: ['pdf'], multiple: false })
-    if (files.length === 0) return
-    setBusy('cas')
-    try {
-      const r = await ipc.import.cas({ path: files[0].path, password: casPassword })
-      setCasStatus(
-        r.alreadyImported
-          ? 'This CAS file was already imported.'
-          : `Imported ${r.schemesCreated} scheme${r.schemesCreated === 1 ? '' : 's'}, ${r.transactionsImported} transactions.`
-      )
-    } catch (e) {
-      setCasStatus(`Could not parse CAS: ${errorMessage(e)}`)
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  async function importGroww() {
-    setGrowwStatus(null)
-    const files = await ipc.dialog.openFiles({ accept: ['csv'], multiple: false })
-    if (files.length === 0) return
-    setBusy('groww')
-    try {
-      const r = await ipc.import.groww({ path: files[0].path })
-      setGrowwStatus(
-        r.alreadyImported
-          ? 'This Groww file was already imported.'
-          : `Imported ${r.stocksCreated} stock${r.stocksCreated === 1 ? '' : 's'}, ${r.tradesImported} trades.`
-      )
-      await refresh()
-    } catch (e) {
-      setGrowwStatus(`Could not parse Groww export: ${errorMessage(e)}`)
-    } finally {
-      setBusy(null)
-    }
-  }
 
   async function addStock() {
     setError(null)
@@ -105,44 +62,15 @@ export default function InvestmentsStep() {
   return (
     <StepLayout
       title="Investments"
-      description="Import your CAS (mutual funds) and Groww (stocks) exports, or add stocks manually."
+      description="Import your mutual-fund and stock statements (add as many as you like), or add stocks manually."
       canSkip
     >
-      <Card className="mb-5">
-        <p className="mb-3 text-sm font-medium text-slate-700">Mutual funds — CAS PDF</p>
-        <p className="mb-3 text-xs text-slate-400">
-          CAMS/KFintech/MFCentral statement. Enter its password, then choose the file.
-        </p>
-        <div className="max-w-xs">
-          <Field label="CAS password" hint="Usually your PAN (uppercase) or the password you set.">
-            <Input
-              type="password"
-              value={casPassword}
-              onChange={(e) => setCasPassword(e.target.value)}
-              placeholder="ABCDE1234F"
-            />
-          </Field>
-        </div>
-        <div className="mt-3">
-          <Button type="button" variant="secondary" onClick={importCas} disabled={busy !== null}>
-            {busy === 'cas' ? 'Parsing…' : 'Choose CAS PDF'}
-          </Button>
-        </div>
-        {casStatus && <p className="mt-2 text-xs text-slate-600">{casStatus}</p>}
-      </Card>
-
-      <Card className="mb-5">
-        <p className="mb-3 text-sm font-medium text-slate-700">Stocks — Groww export</p>
-        <p className="mb-3 text-xs text-slate-400">Groww trade-history CSV.</p>
-        <Button type="button" variant="secondary" onClick={importGroww} disabled={busy !== null}>
-          {busy === 'groww' ? 'Parsing…' : 'Choose Groww CSV'}
-        </Button>
-        {growwStatus && <p className="mt-2 text-xs text-slate-600">{growwStatus}</p>}
-      </Card>
+      <CasImporter />
+      <BrokerImporter onImported={refresh} />
 
       <Card>
         <p className="mb-1 text-sm font-medium text-slate-700">Add a stock manually</p>
-        <p className="mb-4 text-xs text-slate-400">Fallback if you don't have a Groww export.</p>
+        <p className="mb-4 text-xs text-slate-400">Fallback if you don't have a broker export.</p>
 
         {stocks.length > 0 && (
           <ul className="mb-4 space-y-1">
@@ -207,13 +135,4 @@ export default function InvestmentsStep() {
       </Card>
     </StepLayout>
   )
-}
-
-function errorMessage(e: unknown): string {
-  if (e instanceof Error) {
-    // Electron wraps main-process throws as "Error invoking remote method 'x': Error: <msg>".
-    const m = e.message.match(/:\s*(?:Error:\s*)?([^:]+)$/)
-    return (m?.[1] ?? e.message).trim()
-  }
-  return 'unknown error'
 }

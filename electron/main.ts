@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { closeDatabase, getDb, isDatabaseOpen } from './db/connection'
 import { registerIpcHandlers } from './ipc'
-import { readSettings } from './services/app-settings'
+import { isDevMode, readSettings } from './services/app-settings'
 import { refreshAll } from './services/market-data'
 import { applyRefreshSchedule } from './services/refresh-scheduler'
 
@@ -67,7 +67,8 @@ app.whenReady().then(() => {
     userDataDir: app.getPath('userData'),
     sidecarPaths: { scriptsDir: sidecarScriptsDir() },
     settingsPath: settingsPath(),
-    onRefreshConfigChanged: rearmRefreshSchedule
+    onRefreshConfigChanged: rearmRefreshSchedule,
+    getDevMode: () => isDevMode(settingsPath())
   })
   createWindow()
 

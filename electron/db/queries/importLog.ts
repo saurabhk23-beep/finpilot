@@ -50,3 +50,49 @@ export function createImportLog(
     )
   return db.prepare('SELECT * FROM import_log WHERE id = ?').get(result.lastInsertRowid) as ImportLogRow
 }
+
+/**
+ * Deletes an import and the transactions it created (a clean "undo"). Rows are
+ * matched by import_log_id when present; rows imported before that column
+ * existed fall back to matching the file name (+ account, when the log has one).
+ * Any transfer links pointing at the removed rows are cleared first so no
+ * dangling matched_transfer_id remains.
+ */
+export function deleteImport(
+  db: Database.Database,
+  userId: number,
+  importLogId: number
+): { deletedTransactions: number } {
+  const log = db
+    .prepare('SELECT * FROM import_log WHERE user_id = ? AND id = ?')
+    .get(userId, importLogId) as ImportLogRow | undefined
+  if (!log) throw new Error('Import not found')
+
+  const run = db.transaction(() => {
+    const rows = db
+      .prepare(
+        `SELECT id FROM transactions
+         WHERE user_id = ?
+           AND (import_log_id = ?
+                OR (import_log_id IS NULL AND source_file = ? AND (? IS NULL OR account_id = ?)))`
+      )
+      .all(userId, importLogId, log.file_name, log.account_id, log.account_id) as { id: number }[]
+    const ids = rows.map((r) => r.id)
+
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',')
+      // Unlink any counterpart transfer/CC-payment matches that reference these rows.
+      db.prepare(
+        `UPDATE transactions
+         SET matched_transfer_id = NULL, is_transfer = 0, is_cc_payment = 0, is_excluded = 0
+         WHERE user_id = ? AND matched_transfer_id IN (${placeholders})`
+      ).run(userId, ...ids)
+      db.prepare(`DELETE FROM transactions WHERE user_id = ? AND id IN (${placeholders})`).run(userId, ...ids)
+    }
+
+    db.prepare('DELETE FROM import_log WHERE user_id = ? AND id = ?').run(userId, importLogId)
+    return { deletedTransactions: ids.length }
+  })
+
+  return run()
+}

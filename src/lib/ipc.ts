@@ -14,6 +14,7 @@ import type {
   Coverage,
   CreditCard,
   GrowwImportResult,
+  ImportLog,
   ImportPreview,
   MerchantTotal,
   MFDetail,
@@ -21,6 +22,7 @@ import type {
   MFScheme,
   MonthlyTrendPoint,
   PortfolioOverview,
+  PublicProfile,
   RecentTransaction,
   RefreshConfig,
   RefreshResult,
@@ -60,7 +62,9 @@ export interface PickedFile {
 export const ipc = {
   auth: {
     status: () => raw<AuthStatus>('auth:status'),
-    unlock: (password: string) => raw<UnlockResult>('auth:unlock', { password })
+    unlock: (password: string) => raw<UnlockResult>('auth:unlock', { password }),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      raw<{ ok: true }>('auth:changePassword', { currentPassword, newPassword })
   },
   dialog: {
     openFiles: (opts: { accept?: string[]; multiple?: boolean } = {}) =>
@@ -116,7 +120,12 @@ export const ipc = {
   },
   settings: {
     getRefresh: () => raw<RefreshConfig>('settings:getRefresh'),
-    setRefresh: (input: { enabled?: boolean; time?: string }) => raw<RefreshConfig>('settings:setRefresh', input)
+    setRefresh: (input: { enabled?: boolean; time?: string }) => raw<RefreshConfig>('settings:setRefresh', input),
+    // Public profile mirror (no userId) — readable before unlock for the greeting.
+    getProfile: () => raw<PublicProfile>('settings:getProfile'),
+    setProfile: (input: { username?: string | null }) => raw<PublicProfile>('settings:setProfile', input),
+    getDevMode: () => raw<{ devMode: boolean }>('settings:getDevMode'),
+    setDevMode: (devMode: boolean) => raw<{ devMode: boolean }>('settings:setDevMode', { devMode })
   },
   transactions: {
     create: (input: {
@@ -177,12 +186,14 @@ export const ipc = {
       kind: 'bankCsv' | 'bankPdf'
       mapping?: ColumnMapping
       bank?: string
+      password?: string
       targetAccountId?: number
     }) => domain<ImportPreview>('import:preview', input),
     commit: (input: {
       fileName: string
       fileHash: string
-      accountId: number
+      accountId?: number
+      cardId?: number
       drafts: TransactionDraft[]
       dateRange?: { start: string; end: string }
     }) => domain<CommitResult>('import:commit', input),
@@ -193,7 +204,10 @@ export const ipc = {
       dateRange?: { start: string; end: string }
     }) => domain<CommitResult>('import:commitCash', input),
     cas: (input: { path: string; password: string }) => domain<CasImportResult>('import:cas', input),
-    groww: (input: { path: string }) => domain<GrowwImportResult>('import:groww', input)
+    groww: (input: { path: string }) => domain<GrowwImportResult>('import:groww', input),
+    list: () => domain<ImportLog[]>('import:list'),
+    remove: (importLogId: number) =>
+      domain<{ deletedTransactions: number }>('import:delete', { importLogId })
   },
   transfers: {
     detect: () => domain<TransferDetectSummary>('transfers:detect'),

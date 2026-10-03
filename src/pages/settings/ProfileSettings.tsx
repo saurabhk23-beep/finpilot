@@ -9,6 +9,7 @@ const MONTHS = [
 ]
 
 export function ProfileSettings() {
+  const [username, setUsername] = useState('')
   const [name, setName] = useState('')
   const [salary, setSalary] = useState('')
   const [employer, setEmployer] = useState('')
@@ -19,6 +20,7 @@ export function ProfileSettings() {
   useEffect(() => {
     ipc.user.get().then((u) => {
       if (!u) return
+      setUsername(u.username ?? '')
       setName(u.name ?? '')
       setSalary(u.monthly_salary != null ? String(u.monthly_salary) : '')
       setEmployer(u.employer_name ?? '')
@@ -29,18 +31,21 @@ export function ProfileSettings() {
   async function save() {
     setStatus(null)
     const salaryNum = Number(salary)
-    if (!name.trim() || !employer.trim() || !Number.isFinite(salaryNum) || salaryNum <= 0) {
-      setStatus('Please enter a valid name, employer, and salary.')
+    if (!username.trim() || !name.trim() || !employer.trim() || !Number.isFinite(salaryNum) || salaryNum <= 0) {
+      setStatus('Please enter a valid username, name, employer, and salary.')
       return
     }
     setBusy(true)
     try {
       await ipc.user.update({
+        username: username.trim(),
         name: name.trim(),
         monthly_salary: salaryNum,
         employer_name: employer.trim(),
         fy_start_month: fyStart
       })
+      // Keep the pre-unlock greeting mirror in sync.
+      await ipc.settings.setProfile({ username: username.trim() })
       setStatus('Saved.')
     } finally {
       setBusy(false)
@@ -51,6 +56,9 @@ export function ProfileSettings() {
     <SettingsSectionShell title="Profile" description="Used for savings-rate and salary detection.">
       <Card>
         <div className="space-y-4">
+          <Field label="Username" required hint="Shown when you unlock the app.">
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} />
+          </Field>
           <Field label="Name" required>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Field>

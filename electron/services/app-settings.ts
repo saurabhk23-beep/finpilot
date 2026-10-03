@@ -7,12 +7,26 @@ export interface RefreshConfig {
   time: string
 }
 
+/**
+ * Non-sensitive profile bits mirrored outside the encrypted DB so the unlock
+ * screen can greet the user *before* the vault is decrypted. Only the username
+ * lives here — never financial data. The DB row remains authoritative once open.
+ */
+export interface PublicProfile {
+  username: string | null
+}
+
 export interface AppSettings {
   refresh: RefreshConfig
+  profile: PublicProfile
+  /** Developer mode: when on, raw internal errors are surfaced instead of friendly ones. */
+  devMode: boolean
 }
 
 const DEFAULTS: AppSettings = {
-  refresh: { enabled: true, time: '19:00' } // PRD default: 7 PM IST
+  refresh: { enabled: true, time: '19:00' }, // PRD default: 7 PM IST
+  profile: { username: null },
+  devMode: false
 }
 
 /**
@@ -25,11 +39,42 @@ export function readSettings(path: string): AppSettings {
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf-8')) as Partial<AppSettings>
     return {
-      refresh: { ...DEFAULTS.refresh, ...(parsed.refresh ?? {}) }
+      refresh: { ...DEFAULTS.refresh, ...(parsed.refresh ?? {}) },
+      profile: { ...DEFAULTS.profile, ...(parsed.profile ?? {}) },
+      devMode: parsed.devMode ?? DEFAULTS.devMode
     }
   } catch {
     return DEFAULTS
   }
+}
+
+/**
+ * Whether developer mode is active. The FINPILOT_DEV_MODE env var forces it on
+ * (handy while developing); otherwise the persisted setting decides.
+ */
+export function isDevMode(path: string): boolean {
+  if (process.env.FINPILOT_DEV_MODE === '1') return true
+  return readSettings(path).devMode
+}
+
+/** Persists the developer-mode flag. */
+export function setDevMode(path: string, devMode: boolean): boolean {
+  const current = readSettings(path)
+  writeSettings(path, { ...current, devMode })
+  return devMode
+}
+
+/** Reads just the public profile (safe before the DB is unlocked). */
+export function readPublicProfile(path: string): PublicProfile {
+  return readSettings(path).profile
+}
+
+/** Merges and persists the public profile mirror. */
+export function writePublicProfile(path: string, profile: Partial<PublicProfile>): PublicProfile {
+  const current = readSettings(path)
+  const next: PublicProfile = { ...current.profile, ...profile }
+  writeSettings(path, { ...current, profile: next })
+  return next
 }
 
 export function writeSettings(path: string, settings: AppSettings): void {

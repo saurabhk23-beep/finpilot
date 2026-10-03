@@ -26,6 +26,8 @@ export interface PreviewParams {
   mapping?: ColumnMapping
   /** PDF only: bank hint for the sidecar. */
   bank?: string
+  /** PDF only: password for a protected statement. */
+  password?: string
   /** When known, scopes duplicate detection to this account's existing transactions. */
   targetAccountId?: number
 }
@@ -92,7 +94,7 @@ export async function previewTransactionImport(
     headers = parsed.headers
     mapping = parsed.mapping
   } else {
-    const parsed = await parseBankPdf(sidecarPaths, params.path, params.bank ?? '')
+    const parsed = await parseBankPdf(sidecarPaths, params.path, params.bank ?? '', params.password ?? '')
     drafts = parsed.transactions.map((t) => ({
       date: t.date,
       amount: t.amount,
@@ -145,7 +147,9 @@ function rangeOf(drafts: TransactionDraft[]): { start: string; end: string } | u
 export interface CommitParams {
   fileName: string
   fileHash: string
-  accountId: number
+  /** Target: exactly one of accountId / cardId. Card imports land on a credit card. */
+  accountId?: number
+  cardId?: number
   drafts: TransactionDraft[]
   dateRange?: { start: string; end: string }
 }
@@ -155,6 +159,8 @@ export interface CommitResult {
   importLogId: number
   transfersLinked: number
   ccPaymentsLinked: number
+  /** Drafts skipped because an identical transaction already existed on the target. */
+  duplicatesSkipped: number
 }
 
 /**
@@ -176,13 +182,27 @@ export function commitTransactionImport(
     return { categoryId: cat.id, subCategoryId: undefined }
   }
 
+  if (params.accountId == null && params.cardId == null) {
+    throw new Error('Import target is required: pass accountId or cardId')
+  }
+
   const user = getUser(db, userId)
   const categorizer = createCategorizer(db, userId, { employerName: user?.employer_name })
 
-  const existing = listTransactions(db, userId, { accountId: params.accountId })
-  const recurring = findRecurringDebitAmounts([...existing, ...params.drafts])
+  // Scope the EMI-recurrence baseline to the same target the rows will land on.
+  const existing = listTransactions(
+    db,
+    userId,
+    params.cardId != null ? { cardId: params.cardId } : { accountId: params.accountId }
+  )
+  // Skip drafts that already exist on this target (date + amount + narration), so
+  // re-importing the same statement — even renamed or re-downloaded (different file
+  // hash) — doesn't create duplicates.
+  const { fresh, duplicates } = splitDuplicates(params.drafts, existing)
 
-  const inputs: CreateTransactionInput[] = params.drafts.map((d) => {
+  const recurring = findRecurringDebitAmounts([...existing, ...fresh])
+
+  const inputs: CreateTransactionInput[] = fresh.map((d) => {
     let categoryId: number | undefined
     let subCategoryId: number | undefined
 
@@ -204,6 +224,7 @@ export function commitTransactionImport(
 
     return {
       account_id: params.accountId,
+      card_id: params.cardId,
       date: d.date,
       amount: d.amount,
       type: d.type,
@@ -225,6 +246,15 @@ export function commitTransactionImport(
       date_range_end: params.dateRange?.end,
       status: 'success'
     })
+    // Tag the rows with their import so the import can be deleted cleanly later.
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',')
+      db.prepare(`UPDATE transactions SET import_log_id = ? WHERE user_id = ? AND id IN (${placeholders})`).run(
+        log.id,
+        userId,
+        ...ids
+      )
+    }
     return { imported: ids.length, importLogId: log.id }
   })
 
@@ -238,6 +268,7 @@ export function commitTransactionImport(
     imported,
     importLogId,
     transfersLinked: detection.transfersLinked,
-    ccPaymentsLinked: detection.ccPaymentsLinked
+    ccPaymentsLinked: detection.ccPaymentsLinked,
+    duplicatesSkipped: duplicates.length
   }
 }

@@ -203,19 +203,56 @@ export function getMonthlyTrend(
   return [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month))
 }
 
-/** Strips rails/refs/digits from a narration to a display merchant name for grouping. */
+/** Words that are payment rails / plumbing, never a merchant name. */
+const RAIL_WORDS = new Set([
+  'UPI', 'NEFT', 'IMPS', 'RTGS', 'POS', 'ACH', 'ATM', 'TXN', 'REF', 'CR', 'DR', 'TFR',
+  'WDL', 'DEP', 'PAYMENT', 'PAY', 'TO', 'FROM', 'THE', 'AND', 'OF', 'VIA', 'NA'
+])
+
+/**
+ * Turns one UPI field into a merchant name, or null if it's plumbing. A VPA like
+ * "swiggy@icici" yields its readable handle ("SWIGGY"), but masked handles
+ * ("XXyao7@ptys"), phone numbers ("9125449069@pz"), ref numbers and rail words
+ * are rejected so they never become a merchant.
+ */
+function nameFromPart(part: string): string | null {
+  let t = part.trim()
+  const at = t.indexOf('@')
+  if (at >= 0) t = t.slice(0, at) // VPA handle before '@'
+  if (t.length < 3) return null
+  if (RAIL_WORDS.has(t.toUpperCase())) return null
+  if (/^X{2,}/i.test(t)) return null // masked handle, e.g. "XXyao7"
+  const letters = t.replace(/[^a-zA-Z]/g, '')
+  if (letters.length < 3) return null // phone numbers / ref ids / too few letters
+  const cleaned = t.replace(/[^a-zA-Z .&'-]/g, '').trim()
+  return cleaned ? cleaned.toUpperCase().slice(0, 24) : null
+}
+
+/**
+ * Reduces a narration to a display merchant name for grouping. UPI narrations
+ * are structured `…/UPI/<name>/<vpa>/<note>/<bank>/<ref>/…` (ICICI) or
+ * `…/UPI/CR|DR/<ref>/<name>/<bank>/…` (SBI), and simpler ones as `UPI/<vpa>/…`;
+ * the first field that yields a real name wins. Masked VPA handles
+ * ("XXyao7@ptys") and ref numbers are skipped. Non-UPI narrations fall back to
+ * stripping rails/digits.
+ */
 export function merchantKey(narration: string): string {
-  const vpa = narration.match(/([a-z0-9][a-z0-9._]*)@[a-z]/i)
-  if (vpa) return vpa[1].replace(/^(upi|paytm)[-._]?/i, '').toUpperCase()
-  return (
-    narration
-      .toUpperCase()
-      .replace(/\b(UPI|NEFT|IMPS|RTGS|POS|ACH|ATM|TXN|REF|NO|PVT|LTD|IN|OUT)\b/g, ' ')
-      .replace(/\d[\d/-]*/g, ' ')
-      .replace(/[^A-Z&\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim() || narration.trim().toUpperCase()
-  )
+  const upiIdx = narration.toUpperCase().indexOf('UPI/')
+  if (upiIdx >= 0) {
+    const parts = narration.slice(upiIdx + 4).split('/')
+    for (const part of parts) {
+      const name = nameFromPart(part)
+      if (name) return name
+    }
+  }
+  const cleaned = narration
+    .toUpperCase()
+    .replace(/\b(UPI|NEFT|IMPS|RTGS|POS|ACH|ATM|TXN|REF|NO|PVT|LTD|IN|OUT|CR|DR|TFR|WDL|DEP)\b/g, ' ')
+    .replace(/\d[\d/-]*/g, ' ')
+    .replace(/[^A-Z&\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return (cleaned || narration.trim().toUpperCase()).slice(0, 24)
 }
 
 export interface MerchantTotal {

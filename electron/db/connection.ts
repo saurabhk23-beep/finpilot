@@ -41,9 +41,16 @@ export function openDatabase(opts: OpenDatabaseOptions): Database.Database {
 }
 
 let currentDb: Database.Database | null = null
+// The key that unlocked the open DB this session — kept so we can verify the
+// current master password before a rekey (the password itself is never stored).
+let currentKey: string | null = null
 
 function dbFilePath(userDataDir: string): string {
   return join(userDataDir, 'finpilot.db')
+}
+
+function saltFilePath(userDataDir: string): string {
+  return join(userDataDir, 'finpilot.salt')
 }
 
 /** True once the encrypted DB file exists on disk — i.e. a master password has been set (returning user, not first run). */
@@ -53,12 +60,38 @@ export function databaseExists(userDataDir: string): boolean {
 
 /** Electron-specific singleton: resolves paths under userData and opens/caches the DB. Throws on a wrong password. */
 export function initDatabase(userDataDir: string, password: string): Database.Database {
+  const saltPath = saltFilePath(userDataDir)
   currentDb = openDatabase({
     dbPath: dbFilePath(userDataDir),
-    saltPath: join(userDataDir, 'finpilot.salt'),
+    saltPath,
     password
   })
+  // Remember the derived key for this session (salt already exists post-open).
+  currentKey = deriveKey(password, getOrCreateSalt(saltPath))
   return currentDb
+}
+
+/**
+ * Changes the master password on the open DB via SQLCipher's in-place rekey.
+ * The salt is unchanged (it's not secret — only the derived key changes). The
+ * current password is verified against the session key before rekeying, so a
+ * wrong current password is rejected without touching the vault.
+ */
+export function changeMasterPassword(
+  userDataDir: string,
+  currentPassword: string,
+  newPassword: string
+): void {
+  if (!currentDb || !currentKey) {
+    throw new Error('Database is not unlocked')
+  }
+  const salt = getOrCreateSalt(saltFilePath(userDataDir))
+  if (deriveKey(currentPassword, salt) !== currentKey) {
+    throw new Error('Current password is incorrect')
+  }
+  const newKey = deriveKey(newPassword, salt)
+  currentDb.pragma(`rekey="x'${newKey}'"`)
+  currentKey = newKey
 }
 
 export function isDatabaseOpen(): boolean {
@@ -75,4 +108,5 @@ export function getDb(): Database.Database {
 export function closeDatabase(): void {
   currentDb?.close()
   currentDb = null
+  currentKey = null
 }

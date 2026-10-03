@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type Database from 'better-sqlite3-multiple-ciphers'
 import { openDatabase } from '../db/connection'
 import { createAccount } from '../db/queries/accounts'
+import { createCreditCard } from '../db/queries/creditCards'
 import { updateUser } from '../db/queries/users'
 import { listTransactions } from '../db/queries/transactions'
-import { listImportLogs } from '../db/queries/importLog'
+import { deleteImport, listImportLogs } from '../db/queries/importLog'
 import { listStocks } from '../db/queries/stocks'
 import {
   commitTransactionImport,
@@ -90,6 +91,99 @@ describe('import-service (real DB)', () => {
     const logs = listImportLogs(db, 1)
     expect(logs).toHaveLength(1)
     expect(logs[0]).toMatchObject({ txn_count: 3, file_hash: preview.fileHash })
+  })
+
+  it('commits drafts onto a credit card (card_id set, not account_id)', async () => {
+    const path = writeCsv('card.csv', bankCsv)
+    const card = createCreditCard(db, 1, { issuer: 'HDFC', nickname: 'Regalia', credit_limit: 200000 })
+    const preview = await previewTransactionImport(db, 1, sidecarPaths, { path, kind: 'bankCsv' })
+
+    const result = commitTransactionImport(db, 1, {
+      fileName: preview.fileName,
+      fileHash: preview.fileHash,
+      cardId: card.id,
+      drafts: preview.drafts,
+      dateRange: preview.dateRange
+    })
+
+    expect(result.imported).toBe(3)
+    const cardTxns = listTransactions(db, 1, { cardId: card.id })
+    expect(cardTxns).toHaveLength(3)
+    expect(cardTxns.every((t) => t.card_id === card.id && t.account_id === null)).toBe(true)
+  })
+
+  it('deleteImport removes the import and the transactions it created, freeing the file to re-import', async () => {
+    const path = writeCsv('icici.csv', bankCsv)
+    const account = createAccount(db, 1, { bank: 'ICICI', nickname: 'ICICI', type: 'savings' })
+    const preview = await previewTransactionImport(db, 1, sidecarPaths, { path, kind: 'bankCsv' })
+    const { importLogId } = commitTransactionImport(db, 1, {
+      fileName: preview.fileName,
+      fileHash: preview.fileHash,
+      accountId: account.id,
+      drafts: preview.drafts,
+      dateRange: preview.dateRange
+    })
+
+    expect(listTransactions(db, 1, { accountId: account.id })).toHaveLength(3)
+    expect(listImportLogs(db, 1)).toHaveLength(1)
+
+    const result = deleteImport(db, 1, importLogId)
+    expect(result.deletedTransactions).toBe(3)
+    expect(listTransactions(db, 1, { accountId: account.id })).toHaveLength(0)
+    expect(listImportLogs(db, 1)).toHaveLength(0)
+
+    // Same file now re-imports cleanly (hash no longer logged).
+    const again = await previewTransactionImport(db, 1, sidecarPaths, { path, kind: 'bankCsv' })
+    expect(again.alreadyImported).toBe(false)
+    const recommit = commitTransactionImport(db, 1, {
+      fileName: again.fileName,
+      fileHash: again.fileHash,
+      accountId: account.id,
+      drafts: again.drafts,
+      dateRange: again.dateRange
+    })
+    expect(recommit.imported).toBe(3)
+  })
+
+  it('skips duplicate transactions on re-import of the same statement (even with a different file hash)', async () => {
+    const path = writeCsv('icici.csv', bankCsv)
+    const account = createAccount(db, 1, { bank: 'ICICI', nickname: 'ICICI', type: 'savings' })
+    const preview = await previewTransactionImport(db, 1, sidecarPaths, { path, kind: 'bankCsv' })
+
+    const first = commitTransactionImport(db, 1, {
+      fileName: 'statement.csv',
+      fileHash: 'hash-A',
+      accountId: account.id,
+      drafts: preview.drafts,
+      dateRange: preview.dateRange
+    })
+    expect(first.imported).toBe(3)
+    expect(first.duplicatesSkipped).toBe(0)
+
+    // Same transactions, "renamed" file (different name + hash) → all duplicates, none imported.
+    const second = commitTransactionImport(db, 1, {
+      fileName: 'statement-renamed.csv',
+      fileHash: 'hash-B',
+      accountId: account.id,
+      drafts: preview.drafts,
+      dateRange: preview.dateRange
+    })
+    expect(second.imported).toBe(0)
+    expect(second.duplicatesSkipped).toBe(3)
+    expect(listTransactions(db, 1, { accountId: account.id })).toHaveLength(3)
+  })
+
+  it('rejects a commit with no target account or card', async () => {
+    const path = writeCsv('notarget.csv', bankCsv)
+    const preview = await previewTransactionImport(db, 1, sidecarPaths, { path, kind: 'bankCsv' })
+    expect(() =>
+      commitTransactionImport(db, 1, {
+        fileName: preview.fileName,
+        fileHash: preview.fileHash,
+        drafts: preview.drafts,
+        dateRange: preview.dateRange
+      })
+    ).toThrow(/target/i)
   })
 
   it('auto-categorizes recognizable transactions on commit', async () => {

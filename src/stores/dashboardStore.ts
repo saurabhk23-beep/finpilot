@@ -11,7 +11,10 @@ export type SettingsSection =
   | 'categories'
   | 'rules'
   | 'data'
+  | 'import'
   | 'review'
+  | 'security'
+  | 'advanced'
 
 interface DashboardState {
   section: DashboardSection

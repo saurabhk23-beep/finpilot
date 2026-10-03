@@ -6,6 +6,7 @@ import { TopBar } from './dashboard/TopBar'
 import { SpendDashboard } from './dashboard/SpendDashboard'
 import { InvestmentDashboard } from './investments/InvestmentDashboard'
 import { SettingsPage } from './settings/SettingsPage'
+import { TransactionsPage } from './transactions/TransactionsPage'
 
 const NAV: { key: DashboardSection; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -48,9 +49,9 @@ export default function Dashboard() {
             </button>
           ))}
         </nav>
-        {user?.name && (
+        {(user?.username || user?.name) && (
           <div className="mt-auto px-4 py-4 text-xs text-slate-500">
-            Signed in as <span className="text-slate-300">{user.name}</span>
+            Signed in as <span className="text-slate-300">{user.username ?? user.name}</span>
           </div>
         )}
       </aside>
@@ -62,11 +63,7 @@ export default function Dashboard() {
           {section === 'dashboard' && <SpendDashboard categories={categories} />}
           {section === 'investments' && <InvestmentDashboard />}
           {section === 'settings' && <SettingsPage />}
-          {section === 'transactions' && (
-            <div className="flex h-full items-center justify-center text-sm text-slate-400">
-              {NAV.find((n) => n.key === section)?.label} arrives in a later phase.
-            </div>
-          )}
+          {section === 'transactions' && <TransactionsPage />}
         </main>
       </div>
     </div>

@@ -3,7 +3,66 @@
 > Living handoff doc for FinPilot (Electron + React desktop personal-finance app for India).
 > Written so a fresh session can pick up without re-deriving context. Update it as work progresses.
 
-**Last updated:** after completing Phase 1 (Phases A–I) and pushing to GitHub.
+**Last updated:** 2026-10-03 — after the post-Phase-1 UAT hardening rounds (see §0).
+
+---
+
+## 0. Post-Phase-1 UAT work (2026-08 → 2026-10) — CURRENT STATE
+
+> Everything below in §2+ describes the original Phase-1 baseline. This section records
+> what changed since, during real-statement UAT. **All of this is UNCOMMITTED on the
+> `UAT-testing` branch** (working tree has ~40 modified/new files; last commit is still
+> `b82577b`). Tests: **157 JS (Vitest, 24 files) + 6 Python** parser tests, all green;
+> `tsc` clean. Run tests with `FINPILOT_PYTHON="C:/Python314/python.exe" npx vitest run --test-timeout=30000`.
+
+**Features added / fixed since Phase 1:**
+1. **Username** — new `user.username` (migration 005) + plaintext mirror in `settings.json` so the
+   unlock screen greets "Welcome back, <name>" before decryption. Shown in sidebar + Settings → Profile.
+2. **Password UX** — Splash error clears on keystroke; **Change password** (Settings → Security) via
+   SQLCipher `PRAGMA rekey` (`auth:changePassword`, verifies current pw). No recovery (recovery-phrase planned).
+3. **Transactions screen** (`src/pages/transactions/TransactionsPage.tsx`) — replaced the "later phase"
+   stub: scope/range/search, inline re-categorize + remarks, hosts the importer + "Imported files" list.
+4. **Reusable statement importer** (`src/components/StatementImport.tsx`) — pick→review(remove/replace)→
+   parse→commit; targets account/card/cash; CSV column-map + PDF with **password**; derives bank from the
+   target (no redundant "which bank" prompt); generic fallback + "use CSV" message for unsupported banks.
+5. **Investment importers** (`src/components/InvestmentImporters.tsx`) — multi-file, provider-neutral CAS
+   (CAMS/KFintech/MFCentral) + broker (Groww/Zerodha/Upstox) with remove-before-import.
+6. **Settings** — new **Import Data** and **Security** (and started **Advanced/dev-mode**) sections;
+   per-account/card "Import statement" in Accounts/Cards settings.
+7. **Card-statement import** — `commitTransactionImport` takes `accountId` OR `cardId` (migration none;
+   transactions already had card_id). Onboarding attachments now actually import (via `SummaryStep`).
+8. **Delete-import** — migration 006 adds `transactions.import_log_id`; `deleteImport()` + `import:delete`
+   IPC remove an import *and its transactions* (fallback matches old rows by source_file). UI in Transactions.
+9. **Python sidecar interpreter auto-detect** (`electron/parsers/sidecar.ts`) — bare `python` on Windows
+   hits the MS Store stub (no casparser); now probes `FINPILOT_PYTHON` → `py -3` → `python` → `python3`
+   **and scans absolute install dirs** (`C:\Python3*`, `%LOCALAPPDATA%\Python\pythoncore-*`, etc.) for one
+   with casparser+pypdfium2. This machine's working interpreter: **`C:/Python314/python.exe`**.
+10. **Bank-specific PDF parsers** (`python/parse_bank.py`, dispatched by `--bank`, verified on real files):
+    `parse_icici` (savings "OpTransactionHistory", DD.MM.YYYY, multi-line → **527/527 txns**), `parse_icici_card`
+    (single-line, reward-points stripped, CR=credit → 4/4), `parse_sbi` (two-date rows, explicit Dr/Cr cols →
+    60/60), `parse_bob_card` (`INR <amt> <amt> DR|CR` → 26/26). `--password` added for protected bank PDFs.
+    ICICI dispatch tries account parser then card parser (mutually exclusive). Tests: `python/test_parse_bank.py`.
+11. **Friendly errors + developer mode** — `electron/ipc/errors.ts` (`sanitizeIpcError`, `UserFacingError`)
+    wraps all IPC handlers: dev-mode off → friendly message, on → real error; full error always logged.
+    `settings.devMode` + `FINPILOT_DEV_MODE=1` env; renderer strips Electron's wrapper via `src/utils/ipcError.ts`.
+12. **Top-merchants fix** — `merchantKey` (analytics.ts) now extracts the payee name from `UPI/<name>/…`
+    structures (ICICI/SBI) and real VPA handles, skipping masked handles ("XXyao7@ptys") and ref/phone numbers.
+13. **Commit-time duplicate detection** — `commitTransactionImport` now `splitDuplicates` against existing
+    rows on the target (date+amount+narration) and imports only fresh, returning `duplicatesSkipped` (shown in
+    UI). Fixes: renamed/re-downloaded statements (different hash) no longer create duplicates.
+
+**New docs:** `PRODUCT_NOTE.md` (product overview), `TECHNICAL_DESIGN.md` (as-built architecture),
+`IMPLEMENTATION_PLAN.md` (the UAT fix plan + discovered-issues log).
+
+**Migrations now:** 001–006 (005 username, 006 transactions.import_log_id).
+
+**Dev loop note:** main-process changes (sidecar.ts, import-service.ts, analytics.ts, ipc/*) need an app
+**restart** to take effect; renderer changes hot-reload; Python sidecar scripts are re-read each run (no restart).
+Run dev: `npm run dev` (background). The app window title is "FinPilot"; dev userData DB at `%APPDATA%\finpilot\`
+(this session; an older copy may exist at `%APPDATA%\Electron\`).
+
+**Not yet done:** commit/push this UAT work; finish wiring the Advanced/dev-mode settings nav item;
+recovery-phrase; more bank templates (HDFC/Axis/etc.); ambiguous-transfer confirmation UI; Phase 2.
 
 ---
 

@@ -3,6 +3,7 @@ import { ipc } from '../../lib/ipc'
 import type { Account, CreditCard } from '../../types'
 import { Button, Card, Field, Input, Select } from '../../components/ui'
 import { Combobox } from '../../components/Combobox'
+import { StatementImport } from '../../components/StatementImport'
 import { INDIAN_BANKS } from '../../lib/banks'
 import { formatINR } from '../../utils/format'
 import { SettingsSectionShell } from './SettingsSectionShell'
@@ -14,6 +15,7 @@ export function CardsSettings() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState<string | null>(null)
+  const [importFor, setImportFor] = useState<number | null>(null)
 
   async function refresh() {
     const [c, a] = await Promise.all([ipc.creditCards.list(), ipc.accounts.list()])
@@ -69,10 +71,28 @@ export function CardsSettings() {
                 {c.last4 ? ` · ••${c.last4}` : ''}
               </p>
             </div>
-            <button type="button" onClick={() => remove(c.id)} className="text-xs text-negative hover:underline">
-              Remove
-            </button>
+            <div className="flex flex-none items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setImportFor((cur) => (cur === c.id ? null : c.id))}
+                className="text-xs text-primary hover:underline"
+              >
+                {importFor === c.id ? 'Close import' : 'Import statement'}
+              </button>
+              <button type="button" onClick={() => remove(c.id)} className="text-xs text-negative hover:underline">
+                Remove
+              </button>
+            </div>
           </div>
+          {importFor === c.id && (
+            <div className="mt-4">
+              <StatementImport
+                target={{ kind: 'card', cardId: c.id, label: c.nickname }}
+                bankHint={c.issuer}
+                onClose={() => setImportFor(null)}
+              />
+            </div>
+          )}
         </Card>
       ))}
 

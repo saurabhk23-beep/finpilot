@@ -26,6 +26,17 @@ describe('merchantKey', () => {
     expect(merchantKey('UPI/swiggy@icici/pay')).toBe('SWIGGY')
     expect(merchantKey('POS 5231 RELIANCE FRESH 99')).toBe('RELIANCE FRESH')
   })
+
+  it('extracts the payee name from ICICI/SBI UPI narrations, not masked handles', () => {
+    // ICICI: name is the field right after UPI/
+    expect(merchantKey('ANIL KUMAR UPI/ANIL KUMAR/anilpanday4197/remark/BANK OF BA/350636579480')).toBe('ANIL KUMAR')
+    // masked handle must be skipped in favour of the readable payee name
+    expect(merchantKey('Suman Vino UPI/Suman Vino/XXyao7@ptys/Payment to/YES BANK L/662')).toBe('SUMAN VINO')
+    // phone-number handle is not a merchant
+    expect(merchantKey('SAURABH KU UPI/SAURABH KU/9125449069@pz/Payment to/HDFC BANK/596028046897')).toBe('SAURABH KU')
+    // SBI: UPI/CR|DR/<ref>/<name>/<bank>/… → the name field
+    expect(merchantKey('DEP TFR UPI/CR/609216702170/MD DANIS/SBIN/mdanishiit/UPI 0097735162098')).toBe('MD DANIS')
+  })
 })
 
 describe('analytics (real DB)', () => {

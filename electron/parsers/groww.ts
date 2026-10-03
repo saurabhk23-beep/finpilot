@@ -18,7 +18,10 @@ const HEADERS = {
 }
 
 function findHeader(headers: string[], pattern: RegExp): string | undefined {
-  return headers.find((h) => pattern.test(h))
+  // Normalize separators for matching only (snake_case/kebab-case → spaces), so
+  // aliases like /trade\s*type/ match Zerodha's `trade_type` / Upstox's headers.
+  // The original header string is returned unchanged for row lookup.
+  return headers.find((h) => pattern.test(h.replace(/[_-]+/g, ' ')))
 }
 
 function normalizeType(raw: string): 'buy' | 'sell' | null {

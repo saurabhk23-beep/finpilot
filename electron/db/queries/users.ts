@@ -7,6 +7,7 @@ export function getUser(db: Database.Database, userId: number): UserRow | undefi
 }
 
 export interface UpdateUserInput {
+  username?: string
   name?: string
   monthly_salary?: number
   employer_name?: string

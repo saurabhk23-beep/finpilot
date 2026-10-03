@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ipc } from '../lib/ipc'
 import { useAppStore } from '../stores/appStore'
 import { Button, Input } from '../components/ui'
@@ -11,6 +11,14 @@ export default function Splash() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [username, setUsername] = useState<string | null>(null)
+
+  // Read the plaintext username mirror (stored outside the vault) so a returning
+  // user is greeted by name before unlocking. First-run vaults have none yet.
+  useEffect(() => {
+    if (isFirstRun) return
+    ipc.settings.getProfile().then((p) => setUsername(p.username)).catch(() => {})
+  }, [isFirstRun])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -44,6 +52,9 @@ export default function Splash() {
       >
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-content-foreground">FinPilot</h1>
+          {!isFirstRun && username && (
+            <p className="mt-2 text-base font-medium text-content-foreground">Welcome back, {username}</p>
+          )}
           <p className="mt-1 text-sm text-slate-500">
             {isFirstRun ? 'Create a master password to encrypt your data' : 'Enter your master password'}
           </p>
@@ -55,14 +66,22 @@ export default function Splash() {
             placeholder="Master password"
             value={password}
             autoFocus
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              // Clear a stale error the moment the user starts correcting it;
+              // it only reappears if the problem persists on the next submit.
+              if (error) setError(null)
+            }}
           />
           {isFirstRun && (
             <Input
               type="password"
               placeholder="Confirm password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={(e) => {
+                setConfirm(e.target.value)
+                if (error) setError(null)
+              }}
             />
           )}
         </div>

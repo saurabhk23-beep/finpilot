@@ -17,6 +17,7 @@ import { createSettingsHandlers } from './settings'
 import { createTransactionsHandlers } from './transactions'
 import { createTransfersHandlers } from './transfers'
 import type { IpcHandlerMap } from './types'
+import { sanitizeIpcError } from './errors'
 import { createUserHandlers } from './user'
 
 export interface IpcConfig {
@@ -24,37 +25,48 @@ export interface IpcConfig {
   sidecarPaths: SidecarPaths
   settingsPath: string
   onRefreshConfigChanged: () => void
+  /** Read at call time so toggling developer mode takes effect immediately. */
+  getDevMode: () => boolean
 }
 
-function registerHandlerMap(handlers: IpcHandlerMap): void {
+function registerHandlerMap(handlers: IpcHandlerMap, getDevMode: () => boolean): void {
   for (const [channel, handler] of Object.entries(handlers)) {
-    ipcMain.handle(channel, (_event, params) => handler(params))
+    ipcMain.handle(channel, async (_event, params) => {
+      try {
+        return await handler(params)
+      } catch (err) {
+        // Sanitize before it crosses to the renderer (raw internals never leak).
+        throw sanitizeIpcError(channel, err, getDevMode())
+      }
+    })
   }
 }
 
 export function registerIpcHandlers(config: IpcConfig): void {
+  const { getDevMode } = config
   registerAppHandlers()
-  registerAuthHandlers(config.userDataDir)
+  registerAuthHandlers(config.userDataDir, getDevMode)
   registerDialogHandlers()
 
   // Domain handlers call getDb() lazily, so registering them before the DB is
   // unlocked is safe — the renderer only invokes them after auth:unlock succeeds.
-  registerHandlerMap(createUserHandlers(getDb))
-  registerHandlerMap(createAccountsHandlers(getDb))
-  registerHandlerMap(createCreditCardsHandlers(getDb))
-  registerHandlerMap(createCategoriesHandlers(getDb))
-  registerHandlerMap(createCategoryRulesHandlers(getDb))
-  registerHandlerMap(createCategorizationHandlers(getDb))
-  registerHandlerMap(createTransactionsHandlers(getDb))
-  registerHandlerMap(createTransfersHandlers(getDb))
-  registerHandlerMap(createInvestmentsHandlers(getDb))
-  registerHandlerMap(createImportHandlers(getDb, config.sidecarPaths))
-  registerHandlerMap(createAnalyticsHandlers(getDb))
-  registerHandlerMap(createPortfolioHandlers(getDb))
+  registerHandlerMap(createUserHandlers(getDb), getDevMode)
+  registerHandlerMap(createAccountsHandlers(getDb), getDevMode)
+  registerHandlerMap(createCreditCardsHandlers(getDb), getDevMode)
+  registerHandlerMap(createCategoriesHandlers(getDb), getDevMode)
+  registerHandlerMap(createCategoryRulesHandlers(getDb), getDevMode)
+  registerHandlerMap(createCategorizationHandlers(getDb), getDevMode)
+  registerHandlerMap(createTransactionsHandlers(getDb), getDevMode)
+  registerHandlerMap(createTransfersHandlers(getDb), getDevMode)
+  registerHandlerMap(createInvestmentsHandlers(getDb), getDevMode)
+  registerHandlerMap(createImportHandlers(getDb, config.sidecarPaths), getDevMode)
+  registerHandlerMap(createAnalyticsHandlers(getDb), getDevMode)
+  registerHandlerMap(createPortfolioHandlers(getDb), getDevMode)
   registerHandlerMap(
     createSettingsHandlers({
       settingsPath: config.settingsPath,
       onRefreshConfigChanged: config.onRefreshConfigChanged
-    })
+    }),
+    getDevMode
   )
 }

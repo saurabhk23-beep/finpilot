@@ -74,4 +74,17 @@ describe('parseGrowwCsv', () => {
     expect(trades[0]).toMatchObject({ symbol: 'HDFC BANK', type: 'buy', qty: 2, price: 1500 })
     expect(skipped).toBe(2)
   })
+
+  it('parses Zerodha-style snake_case headers', () => {
+    // Zerodha's tradebook export uses underscored headers like trade_type/trade_date.
+    const csv = [
+      'symbol,isin,trade_date,exchange,trade_type,quantity,price',
+      'WIPRO,INE075A01022,2026-01-10,NSE,buy,25,420.5',
+      'SBIN,INE062A01020,2026-01-12,NSE,sell,15,610'
+    ].join('\n')
+    const { trades, skipped } = parseGrowwCsv(csv)
+    expect(skipped).toBe(0)
+    expect(trades[0]).toMatchObject({ symbol: 'WIPRO', date: '2026-01-10', type: 'buy', qty: 25, price: 420.5, exchange: 'NSE' })
+    expect(trades[1]).toMatchObject({ symbol: 'SBIN', type: 'sell', qty: 15, price: 610 })
+  })
 })

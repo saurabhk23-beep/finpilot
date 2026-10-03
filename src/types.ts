@@ -3,6 +3,7 @@
 
 export interface User {
   id: number
+  username: string | null
   name: string | null
   monthly_salary: number | null
   employer_name: string | null
@@ -102,6 +103,7 @@ export interface CommitResult {
   importLogId: number
   transfersLinked: number
   ccPaymentsLinked: number
+  duplicatesSkipped: number
 }
 
 export interface AmbiguousTransferMatch {
@@ -302,6 +304,24 @@ export interface CategoryRule {
 export interface RefreshConfig {
   enabled: boolean
   time: string
+}
+
+/** Non-sensitive profile mirror stored outside the vault (for the unlock greeting). */
+export interface PublicProfile {
+  username: string | null
+}
+
+export interface ImportLog {
+  id: number
+  user_id: number
+  file_name: string
+  file_hash: string
+  account_id: number | null
+  import_date: string
+  txn_count: number
+  date_range_start: string | null
+  date_range_end: string | null
+  status: 'success' | 'partial' | 'failed'
 }
 
 export interface AuthStatus {

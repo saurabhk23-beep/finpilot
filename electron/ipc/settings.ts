@@ -1,4 +1,12 @@
-import { readSettings, writeSettings, type RefreshConfig } from '../services/app-settings'
+import {
+  isDevMode,
+  readPublicProfile,
+  readSettings,
+  setDevMode,
+  writePublicProfile,
+  writeSettings,
+  type RefreshConfig
+} from '../services/app-settings'
 import type { IpcHandlerMap } from './types'
 
 export interface SettingsDeps {
@@ -20,6 +28,22 @@ export function createSettingsHandlers(deps: SettingsDeps): IpcHandlerMap {
       writeSettings(deps.settingsPath, { ...current, refresh })
       deps.onRefreshConfigChanged()
       return refresh
-    }
+    },
+
+    // Public profile mirror — readable before the vault is unlocked, so the
+    // splash screen can greet the returning user. No userId (pre-unlock capable).
+    'settings:getProfile': async () => readPublicProfile(deps.settingsPath),
+
+    'settings:setProfile': async (params) =>
+      writePublicProfile(deps.settingsPath, {
+        username: (params.username as string | undefined) ?? null
+      }),
+
+    // Developer mode: raw internal errors surfaced when on, friendly ones when off.
+    'settings:getDevMode': async () => ({ devMode: isDevMode(deps.settingsPath) }),
+
+    'settings:setDevMode': async (params) => ({
+      devMode: setDevMode(deps.settingsPath, params.devMode === true)
+    })
   }
 }

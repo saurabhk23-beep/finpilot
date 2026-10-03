@@ -6,15 +6,21 @@ import { CategoriesSettings } from './CategoriesSettings'
 import { RulesSettings } from './RulesSettings'
 import { DataRefreshSettings } from './DataRefreshSettings'
 import { UncategorizedReview } from './UncategorizedReview'
+import { SecuritySettings } from './SecuritySettings'
+import { DataImportSettings } from './DataImportSettings'
+import { AdvancedSettings } from './AdvancedSettings'
 
 const NAV: { key: SettingsSection; label: string }[] = [
   { key: 'profile', label: 'Profile' },
   { key: 'accounts', label: 'Bank Accounts' },
   { key: 'cards', label: 'Credit Cards' },
   { key: 'categories', label: 'Categories' },
+  { key: 'import', label: 'Import Data' },
   { key: 'rules', label: 'Rules' },
   { key: 'data', label: 'Data & Refresh' },
-  { key: 'review', label: 'Uncategorized' }
+  { key: 'review', label: 'Uncategorized' },
+  { key: 'security', label: 'Security' },
+  { key: 'advanced', label: 'Advanced' }
 ]
 
 export function SettingsPage() {
@@ -48,8 +54,11 @@ export function SettingsPage() {
         {active === 'cards' && <CardsSettings />}
         {active === 'categories' && <CategoriesSettings />}
         {active === 'rules' && <RulesSettings />}
+        {active === 'import' && <DataImportSettings />}
         {active === 'data' && <DataRefreshSettings />}
         {active === 'review' && <UncategorizedReview />}
+        {active === 'security' && <SecuritySettings />}
+        {active === 'advanced' && <AdvancedSettings />}
       </div>
     </div>
   )

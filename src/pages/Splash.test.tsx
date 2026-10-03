@@ -64,4 +64,19 @@ describe('Splash (returning user)', () => {
     await waitFor(() => expect(screen.getByText('Incorrect password.')).toBeInTheDocument())
     expect(useAppStore.getState().screen).toBe('password')
   })
+
+  it('clears the error as soon as the user edits the password', async () => {
+    useAppStore.setState({ screen: 'password', isFirstRun: false })
+    invoke.mockRejectedValue(new Error('file is not a database'))
+    render(<Splash />)
+
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('Master password'), 'wrongpw')
+    await user.click(screen.getByText('Unlock'))
+    await waitFor(() => expect(screen.getByText('Incorrect password.')).toBeInTheDocument())
+
+    // Typing again should immediately dismiss the stale error.
+    await user.type(screen.getByPlaceholderText('Master password'), 'x')
+    expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument()
+  })
 })

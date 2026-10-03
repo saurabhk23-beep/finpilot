@@ -26,8 +26,10 @@ export default function BankAccountsStep() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [form, setForm] = useState(emptyForm)
   const [files, setFiles] = useState<PickedFile[]>([])
+  const [pdfPassword, setPdfPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const setPendingFiles = useOnboardingStore((s) => s.setPendingFiles)
+  const setPendingPassword = useOnboardingStore((s) => s.setPendingPassword)
 
   async function refresh() {
     // Show only real bank accounts here, not the cash container.
@@ -60,10 +62,12 @@ export default function BankAccountsStep() {
 
     if (files.length > 0) {
       setPendingFiles(`account:${created.id}`, files)
+      if (pdfPassword) setPendingPassword(`account:${created.id}`, pdfPassword)
     }
 
     setForm(emptyForm)
     setFiles([])
+    setPdfPassword('')
     await refresh()
   }
 
@@ -153,6 +157,11 @@ export default function BankAccountsStep() {
           <Field label="Statement(s)">
             <FilePicker files={files} onChange={setFiles} accept={['pdf', 'csv']} label="Attach PDF/CSV" />
           </Field>
+          {files.some((f) => f.name.toLowerCase().endsWith('.pdf')) && (
+            <Field label="PDF password" hint="Leave blank if the statement isn't protected.">
+              <Input type="password" value={pdfPassword} onChange={(e) => setPdfPassword(e.target.value)} placeholder="••••••" />
+            </Field>
+          )}
         </div>
 
         {error && <p className="mt-3 text-sm text-negative">{error}</p>}

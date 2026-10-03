@@ -1,5 +1,6 @@
 export interface UserRow {
   id: number
+  username: string | null
   name: string | null
   monthly_salary: number | null
   employer_name: string | null
@@ -75,6 +76,7 @@ export interface TransactionRow {
   source_file: string | null
   matched_transfer_id: number | null
   mcc: string | null
+  import_log_id: number | null
   created_at: string
 }
 

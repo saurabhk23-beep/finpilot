@@ -22,8 +22,10 @@ export default function CreditCardsStep() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [form, setForm] = useState(emptyForm)
   const [files, setFiles] = useState<PickedFile[]>([])
+  const [pdfPassword, setPdfPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const setPendingFiles = useOnboardingStore((s) => s.setPendingFiles)
+  const setPendingPassword = useOnboardingStore((s) => s.setPendingPassword)
 
   async function refresh() {
     const [cardList, accountList] = await Promise.all([ipc.creditCards.list(), ipc.accounts.list()])
@@ -62,10 +64,12 @@ export default function CreditCardsStep() {
 
     if (files.length > 0) {
       setPendingFiles(`card:${created.id}`, files)
+      if (pdfPassword) setPendingPassword(`card:${created.id}`, pdfPassword)
     }
 
     setForm(emptyForm)
     setFiles([])
+    setPdfPassword('')
     await refresh()
   }
 
@@ -166,6 +170,11 @@ export default function CreditCardsStep() {
           <Field label="Statement(s)">
             <FilePicker files={files} onChange={setFiles} accept={['pdf']} label="Attach PDF" />
           </Field>
+          {files.length > 0 && (
+            <Field label="PDF password" hint="Leave blank if the statement isn't protected.">
+              <Input type="password" value={pdfPassword} onChange={(e) => setPdfPassword(e.target.value)} placeholder="••••••" />
+            </Field>
+          )}
         </div>
 
         {error && <p className="mt-3 text-sm text-negative">{error}</p>}

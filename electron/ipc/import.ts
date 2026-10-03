@@ -8,7 +8,7 @@ import {
 } from '../services/import-service'
 import { importCas, importGroww } from '../services/investment-import'
 import { getOrCreateCashAccount } from '../db/queries/accounts'
-import { listImportLogs } from '../db/queries/importLog'
+import { deleteImport, listImportLogs } from '../db/queries/importLog'
 import { type GetDb, type IpcHandlerMap, requireUserId } from './types'
 
 /**
@@ -20,6 +20,10 @@ export function createImportHandlers(getDb: GetDb, sidecarPaths: SidecarPaths): 
   return {
     'import:list': async (params) => listImportLogs(getDb(), requireUserId(params)),
 
+    // Undo an import: removes the import record and the transactions it created.
+    'import:delete': async (params) =>
+      deleteImport(getDb(), requireUserId(params), params.importLogId as number),
+
     // Parse + dedup + account-match with no writes; safe to call repeatedly as the
     // user adjusts the CSV column mapping.
     'import:preview': async (params) => {
@@ -29,6 +33,7 @@ export function createImportHandlers(getDb: GetDb, sidecarPaths: SidecarPaths): 
         kind: params.kind as TransactionImportKind,
         mapping: params.mapping as ColumnMapping | undefined,
         bank: params.bank as string | undefined,
+        password: params.password as string | undefined,
         targetAccountId: params.targetAccountId as number | undefined
       })
     },
@@ -39,7 +44,8 @@ export function createImportHandlers(getDb: GetDb, sidecarPaths: SidecarPaths): 
       return commitTransactionImport(getDb(), userId, {
         fileName: params.fileName as string,
         fileHash: params.fileHash as string,
-        accountId: params.accountId as number,
+        accountId: params.accountId as number | undefined,
+        cardId: params.cardId as number | undefined,
         drafts: params.drafts as TransactionDraft[],
         dateRange: params.dateRange as { start: string; end: string } | undefined
       })
